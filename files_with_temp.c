@@ -1,13 +1,27 @@
+// #include < Wire .h> we are removing this because it is already added in liquid crystal library
+#include <LiquidCrystal_I2C.h>
+ 
+// Create the lcd object address 0x3F and 16 columns x 2 rows 
+LiquidCrystal_I2C lcd (0x27, 16,2);  //
 #include "FS.h"
 #include "SPIFFS.h"
 #include <OneWire.h>
 #include <DallasTemperature.h>
-
-#define SENSOR_PIN  21 // ESP32 pin GIOP21 connected to DS18B20 sensor's DQ pin
+#define SENSOR_PIN  25 // ESP32 pin GIOP21 connected to DS18B20 sensor's DQ pin
 
 OneWire oneWire(SENSOR_PIN);
 DallasTemperature DS18B20(&oneWire);
 
+void  setup () {
+   // Initialize the LCD connected 
+  lcd. init ();
+  
+  // Turn on the backlight on LCD. 
+  lcd. backlight ();
+  
+  // print the Message on the LCD. 
+}
+ 
 float tempC; // temperature in Celsius
 
 
@@ -155,20 +169,16 @@ void setup_temp() {
   DS18B20.begin();    // initialize the DS18B20 sensor
 }
 
-void setup(){
+void setup_cmd(){
     Serial.begin(115200);
     if(!SPIFFS.begin(true)){
         Serial.println("SPIFFS Mount Failed");
         return;
-    }
+    }}
       
-    listDir(SPIFFS, "/", 0);
-    writeFile(SPIFFS, "/hello.csv", "A temperatura medida é:\n");
-
-
-}
 
 void loop(){
+    lcd.clear();
     DS18B20.requestTemperatures();       // send the command to get temperatures
     float tempC_1, tempC_2, tempC_3, tempC_4, tempC_5, temp_mean;
     tempC_1 = DS18B20.getTempCByIndex(0);  // read temperature in °C
@@ -177,9 +187,14 @@ void loop(){
     tempC_4 = DS18B20.getTempCByIndex(0);  // read temperature in °C
     tempC_5 = DS18B20.getTempCByIndex(0);  // read temperature in °C
     temp_mean = ( tempC_1+tempC_2+tempC_3+tempC_4+tempC_5)/5;
-    
+
     appendFile(SPIFFS, "/hello.csv", temp_mean);
     appendFile_string(SPIFFS, "/hello.csv", "\n");
+
+    lcd. print("Temp. medida");
+    lcd. setCursor (0, 1);
+    lcd. print(temp_mean);
+    lcd. print(" Celsius");
     delay(500);
 
     readFile(SPIFFS, "/hello.csv");
