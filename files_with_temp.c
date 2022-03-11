@@ -174,7 +174,11 @@ void setup_cmd(){
     if(!SPIFFS.begin(true)){
         Serial.println("SPIFFS Mount Failed");
         return;
-    }}
+    }
+    
+    listDir(SPIFFS, "/", 0);
+    writeFile(SPIFFS, "/hello.csv", "Hello\n ");
+}
       
 
 void loop(){
