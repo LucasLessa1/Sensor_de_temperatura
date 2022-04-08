@@ -62,18 +62,26 @@ void setup() {
     Serial.println("Failed to add peer");
     return;
   }
-}
-
-void  setup_lcd() {
-   // Initialize the LCD connected 
-  lcd. init ();
+     // Initialize the LCD connected 
+    lcd.init ();
   
   // Turn on the backlight on LCD. 
-  lcd. backlight ();
+    lcd.backlight ();
   
   // print the Message on the LCD. 
+    lcd.print("Testando LCD");
+    Serial.begin(115200); // initialize serial
+    DS18B20.begin();    // initialize the DS18B20 sensor
+    Serial.begin(115200);
+    if(!SPIFFS.begin(true)){
+        Serial.println("SPIFFS Mount Failed");
+        return;
+    }
+    
+    listDir(SPIFFS, "/", 0);
+    writeFile(SPIFFS, "/hello.csv", "Hello\n ");
 }
- 
+
 float tempC; // temperature in Celsius
 
 
@@ -216,23 +224,8 @@ void testFileIO(fs::FS &fs, const char * path){
     file.close();
 }
 
-void setup_temp() {
-  Serial.begin(115200); // initialize serial
-  DS18B20.begin();    // initialize the DS18B20 sensor
-}
 
-void setup_cmd(){
-    Serial.begin(115200);
-    if(!SPIFFS.begin(true)){
-        Serial.println("SPIFFS Mount Failed");
-        return;
-    }
-    
-    listDir(SPIFFS, "/", 0);
-    writeFile(SPIFFS, "/hello.csv", "Hello\n ");
-}
 
-    
  
 void loop() {
     lcd.clear();
