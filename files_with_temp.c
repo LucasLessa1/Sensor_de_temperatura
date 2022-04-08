@@ -8,7 +8,11 @@ LiquidCrystal_I2C lcd (0x27, 16,2);  //
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #define SENSOR_PIN  25 // ESP32 pin GIOP21 connected to DS18B20 sensor's DQ pin
-
+#include <WiFi.h>
+#include <HTTPClient.h>
+ 
+const char* ssid = "ESP32-AP";
+const char* password = "123456789";
 OneWire oneWire(SENSOR_PIN);
 DallasTemperature DS18B20(&oneWire);
 
@@ -179,28 +183,63 @@ void setup_cmd(){
     listDir(SPIFFS, "/", 0);
     writeFile(SPIFFS, "/hello.csv", "Hello\n ");
 }
-      
+//----------------------------------
+ void setup_wifi(){
+  Serial.begin(115200);
+ 
+  WiFi.begin(ssid, password);
+ 
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi..");
+  }
+ 
+  Serial.println("Connected to the WiFi network");
+}   
 
 void loop(){
-    lcd.clear();
-    DS18B20.requestTemperatures();       // send the command to get temperatures
-    float tempC_1, tempC_2, tempC_3, tempC_4, tempC_5, temp_mean;
-    tempC_1 = DS18B20.getTempCByIndex(0);  // read temperature in °C
-    tempC_2 = DS18B20.getTempCByIndex(0);  // read temperature in °C
-    tempC_3 = DS18B20.getTempCByIndex(0);  // read temperature in °C
-    tempC_4 = DS18B20.getTempCByIndex(0);  // read temperature in °C
-    tempC_5 = DS18B20.getTempCByIndex(0);  // read temperature in °C
-    temp_mean = ( tempC_1+tempC_2+tempC_3+tempC_4+tempC_5)/5;
 
-    appendFile(SPIFFS, "/hello.csv", temp_mean);
-    appendFile_string(SPIFFS, "/hello.csv", "\n");
+//====================Temperature part==================================
+//    DS18B20.requestTemperatures();       // send the command to get temperatures
+//    float tempC_1, tempC_2, tempC_3, tempC_4, tempC_5, temp_mean;
+//    tempC_1 = DS18B20.getTempCByIndex(0);  // read temperature in °C
+//    tempC_2 = DS18B20.getTempCByIndex(0);  // read temperature in °C
+//    tempC_3 = DS18B20.getTempCByIndex(0);  // read temperature in °C
+//    tempC_4 = DS18B20.getTempCByIndex(0);  // read temperature in °C
+//    tempC_5 = DS18B20.getTempCByIndex(0);  // read temperature in °C
+//    temp_mean = ( tempC_1+tempC_2+tempC_3+tempC_4+tempC_5)/5;
+//=====================Comunication part=============================
+    HTTPClient http;
+   
+    http.begin("http://192.168.1.10/temperature");
+    int httpCode = http.GET();
 
-    lcd. print("Temp. medida");
-    lcd. setCursor (0, 1);
-    lcd. print(temp_mean);
-    lcd. print(" Celsius");
-    delay(500);
+      if (httpCode > 0) {
+     
+    String payload = http.getString();
+    Serial.println(httpCode);
+    Serial.println(payload);
+  }
+ 
+  else {
+    Serial.println("Error on HTTP request");
+  }
+ 
+  http.end(); 
+ 
+  delay(1000);
+//=====================Data part==============================================
+//    appendFile(SPIFFS, "/hello.csv", temp_mean);
+//    appendFile_string(SPIFFS, "/hello.csv", "\n");
 
-    readFile(SPIFFS, "/hello.csv");
+//======================LCD===================================
+//    lcd.clear();
+//    lcd. print("Temp. medida");
+//    lcd. setCursor (0, 1);
+//    lcd. print(temp_mean);
+//    lcd. print(" Celsius");
+//    delay(500);
+
+//    readFile(SPIFFS, "/hello.csv");
   
 }
