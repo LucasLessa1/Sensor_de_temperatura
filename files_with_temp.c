@@ -1,22 +1,70 @@
-// #include < Wire .h> we are removing this because it is already added in liquid crystal library
+#include <esp_now.h>
+#include <WiFi.h>
 #include <LiquidCrystal_I2C.h>
- 
-// Create the lcd object address 0x3F and 16 columns x 2 rows 
 LiquidCrystal_I2C lcd (0x27, 16,2);  //
 #include "FS.h"
 #include "SPIFFS.h"
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #define SENSOR_PIN  25 // ESP32 pin GIOP21 connected to DS18B20 sensor's DQ pin
-#include <WiFi.h>
 #include <HTTPClient.h>
- 
-const char* ssid = "ESP32-AP";
-const char* password = "123456789";
+
 OneWire oneWire(SENSOR_PIN);
 DallasTemperature DS18B20(&oneWire);
 
-void  setup () {
+
+uint8_t broadcastAddress[] = {0xEC,0x94,0xCB,0x6F,0x21,0x58};
+
+// Structure example to send data
+// Must match the receiver structure
+typedef struct struct_message {
+  char a[32];
+  int b;
+  float c;
+  bool d;
+} struct_message;
+
+// Create a struct_message called myData
+struct_message myData;
+
+esp_now_peer_info_t peerInfo;
+
+// callback when data is sent
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.print("\r\nLast Packet Send Status:\t");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+ 
+void setup() {
+  // Init Serial Monitor
+  Serial.begin(115200);
+ 
+  // Set device as a Wi-Fi Station
+  WiFi.mode(WIFI_STA);
+
+  // Init ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+
+  // Once ESPNow is successfully Init, we will register for Send CB to
+  // get the status of Trasnmitted packet
+  esp_now_register_send_cb(OnDataSent);
+  
+  // Register peer
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = 0;  
+  peerInfo.encrypt = false;
+  
+  // Add peer        
+  if (esp_now_add_peer(&peerInfo) != ESP_OK){
+    Serial.println("Failed to add peer");
+    return;
+  }
+}
+
+void  setup_lcd() {
    // Initialize the LCD connected 
   lcd. init ();
   
@@ -183,63 +231,48 @@ void setup_cmd(){
     listDir(SPIFFS, "/", 0);
     writeFile(SPIFFS, "/hello.csv", "Hello\n ");
 }
-//----------------------------------
- void setup_wifi(){
-  Serial.begin(115200);
- 
-  WiFi.begin(ssid, password);
- 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Connecting to WiFi..");
-  }
- 
-  Serial.println("Connected to the WiFi network");
-}   
 
-void loop(){
-
+    
+ 
+void loop() {
+    lcd.clear();
 //====================Temperature part==================================
-//    DS18B20.requestTemperatures();       // send the command to get temperatures
-//    float tempC_1, tempC_2, tempC_3, tempC_4, tempC_5, temp_mean;
-//    tempC_1 = DS18B20.getTempCByIndex(0);  // read temperature in °C
-//    tempC_2 = DS18B20.getTempCByIndex(0);  // read temperature in °C
-//    tempC_3 = DS18B20.getTempCByIndex(0);  // read temperature in °C
-//    tempC_4 = DS18B20.getTempCByIndex(0);  // read temperature in °C
-//    tempC_5 = DS18B20.getTempCByIndex(0);  // read temperature in °C
-//    temp_mean = ( tempC_1+tempC_2+tempC_3+tempC_4+tempC_5)/5;
-//=====================Comunication part=============================
-    HTTPClient http;
-   
-    http.begin("http://192.168.1.10/temperature");
-    int httpCode = http.GET();
-
-      if (httpCode > 0) {
-     
-    String payload = http.getString();
-    Serial.println(httpCode);
-    Serial.println(payload);
-  }
- 
-  else {
-    Serial.println("Error on HTTP request");
-  }
- 
-  http.end(); 
- 
-  delay(1000);
-//=====================Data part==============================================
-//    appendFile(SPIFFS, "/hello.csv", temp_mean);
-//    appendFile_string(SPIFFS, "/hello.csv", "\n");
+    DS18B20.requestTemperatures();       // send the command to get temperatures
+    float tempC_1, tempC_2, tempC_3, tempC_4, tempC_5, temp_mean;
+    tempC_1 = DS18B20.getTempCByIndex(0);  // read temperature in °C
+    tempC_2 = DS18B20.getTempCByIndex(0);  // read temperature in °C
+    tempC_3 = DS18B20.getTempCByIndex(0);  // read temperature in °C
+    tempC_4 = DS18B20.getTempCByIndex(0);  // read temperature in °C
+    tempC_5 = DS18B20.getTempCByIndex(0);  // read temperature in °C
+    temp_mean = ( tempC_1+tempC_2+tempC_3+tempC_4+tempC_5)/5;
 
 //======================LCD===================================
-//    lcd.clear();
-//    lcd. print("Temp. medida");
-//    lcd. setCursor (0, 1);
-//    lcd. print(temp_mean);
-//    lcd. print(" Celsius");
-//    delay(500);
+    lcd. print("Temp. medida");
+    lcd. setCursor (0, 1);
+    lcd. print(temp_mean);
+    lcd. print(" Celsius");
+    delay(500);
 
-//    readFile(SPIFFS, "/hello.csv");
-  
+    readFile(SPIFFS, "/hello.csv");
+//=====================Comunication part=============================
+    strcpy(myData.a, "Temp. média");
+
+    myData.c = temp_mean;
+    myData.d = false;
+    
+    // Send message via ESP-NOW
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
+     
+    if (result == ESP_OK) {
+      Serial.println("Sent with success");
+    }
+    else {
+      Serial.println("Error sending the data");
+    }
+    delay(2000);
+//=====================Data part==============================================
+    appendFile(SPIFFS, "/hello.csv", temp_mean);
+    appendFile_string(SPIFFS, "/hello.csv", "\n");
+
+
 }
